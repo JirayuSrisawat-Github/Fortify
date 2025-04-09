@@ -1,8 +1,10 @@
 name: Release
+
 on:
   push:
   release:
     types: [ published ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -56,3 +58,12 @@ jobs:
           omitDraftDuringUpdate: true
           omitNameDuringUpdate: true
           omitPrereleaseDuringUpdate: true
+
+  publish-jitpack:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish to JitPack
+        uses: badasintended/autojitpack@v1
+        with:
+          version: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
