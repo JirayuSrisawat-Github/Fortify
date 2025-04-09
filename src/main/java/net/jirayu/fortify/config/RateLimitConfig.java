@@ -11,7 +11,8 @@ public class RateLimitConfig {
     private int duration = 60;
     private int blockThreshold = 10;
     private int blockDuration = 300;
-    private boolean blockWithIptables = false;
+    private boolean blockWithFirewall = false;
+    private String firewallType = "iptables"; // Options: "iptables" or "ufw"
 
     public boolean isEnabled() {
         return enabled;
@@ -33,8 +34,8 @@ public class RateLimitConfig {
         return blockDuration;
     }
     
-    public boolean isBlockWithIptables() {
-        return blockWithIptables;
+    public boolean isBlockWithFirewall() {
+        return blockWithFirewall;
     }
 
     public void setEnabled(boolean enabled) {
@@ -57,7 +58,28 @@ public class RateLimitConfig {
         this.blockDuration = blockDuration;
     }
     
+    public void setBlockWithFirewall(boolean blockWithFirewall) {
+        this.blockWithFirewall = blockWithFirewall;
+    }
+    
+    public String getFirewallType() {
+        return firewallType;
+    }
+    
+    public void setFirewallType(String firewallType) {
+        this.firewallType = firewallType;
+    }
+    
+    public boolean isBlockWithIptables() {
+        return blockWithFirewall && "iptables".equalsIgnoreCase(firewallType);
+    }
+    
     public void setBlockWithIptables(boolean blockWithIptables) {
-        this.blockWithIptables = blockWithIptables;
+        if (blockWithIptables) {
+            this.blockWithFirewall = true;
+            this.firewallType = "iptables";
+        } else {
+            this.blockWithFirewall = false;
+        }
     }
 }

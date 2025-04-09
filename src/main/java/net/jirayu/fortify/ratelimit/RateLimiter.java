@@ -60,13 +60,13 @@ public class RateLimiter {
                 log.warn("IP {} blocked for {} seconds due to rate limit violations",
                         ip, config.getBlockDuration());
                 
-                if (config.isBlockWithIptables()) {
-                    blockIpWithIptables(ip);
+                if (config.isBlockWithFirewall()) {
+                    blockIpWithFirewall(ip);
 
                     Thread unblockThread = new Thread(() -> {
                         try {
                             Thread.sleep(blockDurationMillis);
-                            unblockIpWithIptables(ip);
+                            unblockIpWithFirewall(ip);
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         }
@@ -93,8 +93,8 @@ public class RateLimiter {
 
         if (System.currentTimeMillis() > unblockTime) {
             blockedIps.remove(ip);
-            if (config.isBlockWithIptables()) {
-                unblockIpWithIptables(ip);
+            if (config.isBlockWithFirewall()) {
+                unblockIpWithFirewall(ip);
             }
             return false;
         }
@@ -127,11 +127,27 @@ public class RateLimiter {
 
         blockedIps.entrySet().removeIf(entry -> {
             boolean shouldRemove = now > entry.getValue();
-            if (shouldRemove && config.isBlockWithIptables()) {
-                unblockIpWithIptables(entry.getKey());
+            if (shouldRemove && config.isBlockWithFirewall()) {
+                unblockIpWithFirewall(entry.getKey());
             }
             return shouldRemove;
         });
+    }
+    
+    private void blockIpWithFirewall(String ip) {
+        if ("ufw".equalsIgnoreCase(config.getFirewallType())) {
+            blockIpWithUfw(ip);
+        } else {
+            blockIpWithIptables(ip);
+        }
+    }
+    
+    private void unblockIpWithFirewall(String ip) {
+        if ("ufw".equalsIgnoreCase(config.getFirewallType())) {
+            unblockIpWithUfw(ip);
+        } else {
+            unblockIpWithIptables(ip);
+        }
     }
     
     private void blockIpWithIptables(String ip) {
@@ -190,6 +206,46 @@ public class RateLimiter {
             }
         } catch (IOException | InterruptedException e) {
             log.error("Error executing iptables unblock command for IP {}: {}", ip, e.getMessage());
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    private void blockIpWithUfw(String ip) {
+        try {
+            String command = String.format("ufw deny from %s to any", ip);
+            Process process = Runtime.getRuntime().exec(command);
+            int exitCode = process.waitFor();
+            
+            if (exitCode == 0) {
+                log.info("Successfully blocked IP {} with UFW", ip);
+            } else {
+                log.error("Failed to block IP {} with UFW, exit code: {}", ip, exitCode);
+                logProcessError(process);
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("Error executing UFW block command for IP {}: {}", ip, e.getMessage());
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    private void unblockIpWithUfw(String ip) {
+        try {
+            String command = String.format("ufw delete deny from %s to any", ip);
+            Process process = Runtime.getRuntime().exec(command);
+            int exitCode = process.waitFor();
+            
+            if (exitCode == 0) {
+                log.info("Successfully unblocked IP {} with UFW", ip);
+            } else {
+                log.error("Failed to unblock IP {} with UFW, exit code: {}", ip, exitCode);
+                logProcessError(process);
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("Error executing UFW unblock command for IP {}: {}", ip, e.getMessage());
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }

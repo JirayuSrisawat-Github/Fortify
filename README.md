@@ -30,11 +30,12 @@ plugins:
   fortify:
     ratelimit:
       enabled: true
-      blockWithIptables: false # Set to true to block IPs using iptables (Linux only)
-      maxRequests: 100         # Maximum requests allowed in the duration window
-      duration: 60             # Duration window in seconds
-      blockThreshold: 5        # Block IP after exceeding rate limit this many times
-      blockDuration: 300       # How long to block IPs (in seconds)
+      blockWithFirewall: false  # Set to true to block IPs using system firewall (Linux only)
+      firewallType: "iptables"  # Options: "iptables" or "ufw"
+      maxRequests: 100          # Maximum requests allowed in the duration window
+      duration: 60              # Duration window in seconds
+      blockThreshold: 5         # Block IP after exceeding rate limit this many times
+      blockDuration: 300        # How long to block IPs (in seconds)
 ```
 
 ### Player Limits
