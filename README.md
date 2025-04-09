@@ -33,7 +33,7 @@ plugins:
       blockWithIptables: false # Set to true to block IPs using iptables (Linux only)
       maxRequests: 100         # Maximum requests allowed in the duration window
       duration: 60             # Duration window in seconds
-      blockAfterExceeding: 5   # Block IP after exceeding rate limit this many times
+      blockThreshold: 5        # Block IP after exceeding rate limit this many times
       blockDuration: 300       # How long to block IPs (in seconds)
 ```
 
