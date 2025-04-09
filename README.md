@@ -14,6 +14,13 @@ Fortify is a comprehensive security plugin for [Lavalink](https://github.com/lav
 
 Add Fortify to your Lavalink server configuration:
 
+```yml
+lavalink:
+  plugins:
+    - dependency: com.github.JirayuSrisawat-Github:Fortify:{VERSION} # replace {VERSION} with the latest version
+      repository: https://jitpack.io
+```
+
 ## Configuration
 
 ### Rate Limiting

@@ -28,6 +28,13 @@ tasks {
     }
 }
 
+repositories {
+    mavenCentral()
+    maven("https://maven.lavalink.dev/releases")
+    maven("https://maven.lavalink.dev/snapshots")
+    maven("https://jitpack.io")
+}
+
 dependencies {
     implementation("com.github.vladimir-bukhtoyarov:bucket4j-core:7.6.0")
 }
