@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.jirayu.fortify.config.BypassConfig;
 import net.jirayu.fortify.config.NotificationConfig;
+import net.jirayu.fortify.config.PathBlockConfig;
 import net.jirayu.fortify.config.ProxyConfig;
 import net.jirayu.fortify.config.RateLimitConfig;
 import net.jirayu.fortify.notification.NotificationService;
@@ -25,6 +26,7 @@ public class FortifyRest implements RestInterceptor {
     private final ProxyConfig proxyConfig;
     private final BypassConfig bypassConfig;
     private final NotificationConfig notificationConfig;
+    private final PathBlockConfig pathBlockConfig;
     private final RateLimiter rateLimiter;
     private final NotificationService notificationService;
 
@@ -32,12 +34,14 @@ public class FortifyRest implements RestInterceptor {
                        ProxyConfig proxyConfig,
                        BypassConfig bypassConfig,
                        NotificationConfig notificationConfig,
+                       PathBlockConfig pathBlockConfig,
                        RateLimiter rateLimiter,
                        NotificationService notificationService) {
         this.rateLimitConfig = rateLimitConfig;
         this.proxyConfig = proxyConfig;
         this.bypassConfig = bypassConfig;
         this.notificationConfig = notificationConfig;
+        this.pathBlockConfig = pathBlockConfig;
         this.rateLimiter = rateLimiter;
         this.notificationService = notificationService;
     }
@@ -48,6 +52,17 @@ public class FortifyRest implements RestInterceptor {
                              @NotNull Object handler) {
         String ip = FortifyTools.getIp(request, proxyConfig);
         String path = request.getRequestURI();
+
+        if (pathBlockConfig.isEnabled() && pathBlockConfig.isPathBlocked(path) && !isAllowedIp(ip)) {
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            log.warn("Blocked request to restricted path: {} from IP {}", path, ip);
+
+            if (notificationConfig.getEnabled().isPathBlock()) {
+                notificationService.sendPathBlockNotification(ip, path);
+            }
+
+            return false;
+        }
 
         if (isAllowedIp(ip)) {
             return true;

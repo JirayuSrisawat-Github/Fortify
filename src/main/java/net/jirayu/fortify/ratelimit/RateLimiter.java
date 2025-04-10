@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 @Service
 public class RateLimiter {
@@ -265,6 +266,40 @@ public class RateLimiter {
         } catch (IOException e) {
             log.error("Error reading process error stream: {}", e.getMessage());
         }
+    }
+
+    public void manuallyBlockIp(String ip, long durationMillis) {
+        long unblockTime = System.currentTimeMillis() + durationMillis;
+        blockedIps.put(ip, unblockTime);
+        log.warn("IP {} manually blocked for {} milliseconds", ip, durationMillis);
+        
+        if (config.isBlockWithFirewall()) {
+            blockIpWithFirewall(ip);
+            
+            Thread unblockThread = new Thread(() -> {
+                try {
+                    Thread.sleep(durationMillis);
+                    unblockIpWithFirewall(ip);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            unblockThread.setDaemon(true);
+            unblockThread.start();
+        }
+    }
+
+    public void manuallyUnblockIp(String ip) {
+        blockedIps.remove(ip);
+        log.info("IP {} manually unblocked", ip);
+        
+        if (config.isBlockWithFirewall()) {
+            unblockIpWithFirewall(ip);
+        }
+    }
+
+    public Map<String, Object> getBlockedIpsWithExpiryTime() {
+        return new HashMap<>(blockedIps);
     }
 
     private static class RequestTracker {

@@ -7,6 +7,7 @@ import net.jirayu.fortify.config.BypassConfig;
 import net.jirayu.fortify.config.NotificationConfig;
 import net.jirayu.fortify.config.PlayerLimitConfig;
 import net.jirayu.fortify.notification.NotificationService;
+import net.jirayu.fortify.monitor.ResourceMonitor;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,15 +26,18 @@ public class FortifySocket extends PluginEventHandler {
     private final NotificationConfig notificationConfig;
     private final BypassConfig bypassConfig;
     private final NotificationService notificationService;
+    private final ResourceMonitor resourceMonitor;
 
     public FortifySocket(PlayerLimitConfig playerLimitConfig,
                          NotificationConfig notificationConfig,
                          BypassConfig bypassConfig,
-                         NotificationService notificationService) {
+                         NotificationService notificationService,
+                         ResourceMonitor resourceMonitor) {
         this.playerLimitConfig = playerLimitConfig;
         this.notificationConfig = notificationConfig;
         this.bypassConfig = bypassConfig;
         this.notificationService = notificationService;
+        this.resourceMonitor = resourceMonitor;
 
         log.info("Player limit configuration: enabled={}, maxPlayers={}",
                 playerLimitConfig.isEnabled(), playerLimitConfig.getMaxPlayers());
@@ -67,6 +71,16 @@ public class FortifySocket extends PluginEventHandler {
 
     @Override
     public void onWebSocketOpen(@NotNull ISocketContext context, boolean resumed) {
+        if (resourceMonitor.isThrottling() && !isAllowedId(context.getUserId())) {
+            try {
+                int delay = resourceMonitor.getConnectionDelay();
+                log.info("Throttling connection for user {} by {}ms", context.getUserId(), delay);
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
         this.connectedSockets.put(context.getSessionId(), context);
         log.debug("Socket connection opened: sessionId={}, current players={}/{}",
                 context.getSessionId(), connectedSockets.size(), playerLimitConfig.getMaxPlayers());
@@ -93,7 +107,7 @@ public class FortifySocket extends PluginEventHandler {
         return 0;
     }
 
-    private boolean isAllowedId(Long clientId) {
+    public boolean isAllowedId(Long clientId) {
         return Arrays.asList(bypassConfig.getAllowedClients()).contains(clientId);
     }
 }

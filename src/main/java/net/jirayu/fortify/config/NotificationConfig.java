@@ -12,6 +12,7 @@ public class NotificationConfig {
     public static class Enabled {
         private boolean ratelimit = false;
         private boolean playerLimit = false;
+        private boolean pathBlock = false;
 
         public boolean isRatelimit() {
             return ratelimit;
@@ -27,6 +28,14 @@ public class NotificationConfig {
 
         public void setPlayerLimit(boolean playerLimit) {
             this.playerLimit = playerLimit;
+        }
+
+        public boolean isPathBlock() {
+            return pathBlock;
+        }
+
+        public void setPathBlock(boolean pathBlock) {
+            this.pathBlock = pathBlock;
         }
     }
 
