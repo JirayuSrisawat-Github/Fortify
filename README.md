@@ -34,8 +34,8 @@ plugins:
   fortify:
     ratelimit:
       enabled: true
-      blockWithFirewall: false  # Set to true to block IPs using system firewall (Linux only)
-      firewallType: "iptables"  # Options: "iptables" or "ufw"
+      blockWithFirewall: false  # Set to true to block IPs using system firewall
+      firewallType: "iptables"  # Options: "iptables", "ufw", or "windows"
       maxRequests: 100          # Maximum requests allowed in the duration window
       duration: 60              # Duration window in seconds
       blockThreshold: 5         # Block IP after exceeding rate limit this many times
@@ -125,6 +125,20 @@ plugins:
       apiKey: "your-secure-api-key-here"  # Required for API authentication
 ```
 
+## Firewall Integration
+
+Fortify supports integrating with system firewalls on both Linux and Windows:
+
+- **Linux**: Uses either iptables or ufw
+- **Windows**: Uses Windows Firewall (netsh advfirewall)
+
+⚠️ **Important for Windows Users**:
+- The application **must be run as Administrator** when using Windows Firewall integration
+- For service installations, configure the service to run with administrator privileges
+- Blocking/unblocking operations will fail without elevation
+
+Set `blockWithFirewall: true` and choose the appropriate `firewallType` for your operating system.
+
 ## API Endpoints
 
 Fortify provides management API endpoints that require authentication via the `X-Fortify-Key` header:
@@ -157,6 +171,7 @@ Fortify adds the following headers to HTTP responses:
 
 - Lavalink server v4 or higher
 - Java 17 or higher
+- **Windows systems**: Administrator privileges for firewall operations
 
 ## Building from Source
 

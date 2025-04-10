@@ -12,7 +12,7 @@ public class RateLimitConfig {
     private int blockThreshold = 10;
     private int blockDuration = 300;
     private boolean blockWithFirewall = false;
-    private String firewallType = "iptables"; // Options: "iptables" or "ufw"
+    private String firewallType = "iptables"; // Options: "iptables", "ufw", or "windows"
 
     public boolean isEnabled() {
         return enabled;
@@ -33,7 +33,7 @@ public class RateLimitConfig {
     public int getBlockDuration() {
         return blockDuration;
     }
-    
+
     public boolean isBlockWithFirewall() {
         return blockWithFirewall;
     }
@@ -57,29 +57,28 @@ public class RateLimitConfig {
     public void setBlockDuration(int blockDuration) {
         this.blockDuration = blockDuration;
     }
-    
+
     public void setBlockWithFirewall(boolean blockWithFirewall) {
         this.blockWithFirewall = blockWithFirewall;
     }
-    
+
     public String getFirewallType() {
         return firewallType;
     }
-    
+
     public void setFirewallType(String firewallType) {
         this.firewallType = firewallType;
     }
-    
+
     public boolean isBlockWithIptables() {
         return blockWithFirewall && "iptables".equalsIgnoreCase(firewallType);
     }
-    
-    public void setBlockWithIptables(boolean blockWithIptables) {
-        if (blockWithIptables) {
-            this.blockWithFirewall = true;
-            this.firewallType = "iptables";
-        } else {
-            this.blockWithFirewall = false;
-        }
+
+    public boolean isBlockWithUfw() {
+        return blockWithFirewall && "ufw".equalsIgnoreCase(firewallType);
+    }
+
+    public boolean isBlockWithWindowsFirewall() {
+        return blockWithFirewall && "windows".equalsIgnoreCase(firewallType);
     }
 }

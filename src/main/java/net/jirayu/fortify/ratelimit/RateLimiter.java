@@ -1,13 +1,11 @@
 package net.jirayu.fortify.ratelimit;
 
 import net.jirayu.fortify.config.RateLimitConfig;
+import net.jirayu.fortify.firewall.FirewallManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
@@ -17,11 +15,13 @@ public class RateLimiter {
     private static final Logger log = LoggerFactory.getLogger(RateLimiter.class);
 
     private final RateLimitConfig config;
+    private final FirewallManager firewallManager;
     private final Map<String, RequestTracker> requestTrackers = new ConcurrentHashMap<>();
     private final Map<String, Long> blockedIps = new ConcurrentHashMap<>();
 
-    public RateLimiter(RateLimitConfig config) {
+    public RateLimiter(RateLimitConfig config, FirewallManager firewallManager) {
         this.config = config;
+        this.firewallManager = firewallManager;
 
         Thread cleanupThread = new Thread(() -> {
             while (true) {
@@ -60,14 +60,14 @@ public class RateLimiter {
 
                 log.warn("IP {} blocked for {} seconds due to rate limit violations",
                         ip, config.getBlockDuration());
-                
+
                 if (config.isBlockWithFirewall()) {
-                    blockIpWithFirewall(ip);
+                    firewallManager.blockIp(ip);
 
                     Thread unblockThread = new Thread(() -> {
                         try {
                             Thread.sleep(blockDurationMillis);
-                            unblockIpWithFirewall(ip);
+                            firewallManager.unblockIp(ip);
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         }
@@ -75,7 +75,7 @@ public class RateLimiter {
                     unblockThread.setDaemon(true);
                     unblockThread.start();
                 }
-                
+
                 return false;
             }
 
@@ -95,7 +95,7 @@ public class RateLimiter {
         if (System.currentTimeMillis() > unblockTime) {
             blockedIps.remove(ip);
             if (config.isBlockWithFirewall()) {
-                unblockIpWithFirewall(ip);
+                firewallManager.unblockIp(ip);
             }
             return false;
         }
@@ -129,157 +129,24 @@ public class RateLimiter {
         blockedIps.entrySet().removeIf(entry -> {
             boolean shouldRemove = now > entry.getValue();
             if (shouldRemove && config.isBlockWithFirewall()) {
-                unblockIpWithFirewall(entry.getKey());
+                firewallManager.unblockIp(entry.getKey());
             }
             return shouldRemove;
         });
-    }
-    
-    private void blockIpWithFirewall(String ip) {
-        if ("ufw".equalsIgnoreCase(config.getFirewallType())) {
-            blockIpWithUfw(ip);
-        } else {
-            blockIpWithIptables(ip);
-        }
-    }
-    
-    private void unblockIpWithFirewall(String ip) {
-        if ("ufw".equalsIgnoreCase(config.getFirewallType())) {
-            unblockIpWithUfw(ip);
-        } else {
-            unblockIpWithIptables(ip);
-        }
-    }
-    
-    private void blockIpWithIptables(String ip) {
-        try {
-            String inputCommand = String.format("iptables -A INPUT -s %s -j DROP", ip);
-            Process inputProcess = Runtime.getRuntime().exec(inputCommand);
-            int inputExitCode = inputProcess.waitFor();
-            
-            if (inputExitCode == 0) {
-                log.info("Successfully blocked IP {} in INPUT chain with iptables", ip);
-            } else {
-                log.error("Failed to block IP {} in INPUT chain with iptables, exit code: {}", ip, inputExitCode);
-                logProcessError(inputProcess);
-            }
-
-            String forwardCommand = String.format("iptables -A FORWARD -s %s -j DROP", ip);
-            Process forwardProcess = Runtime.getRuntime().exec(forwardCommand);
-            int forwardExitCode = forwardProcess.waitFor();
-            
-            if (forwardExitCode == 0) {
-                log.info("Successfully blocked IP {} in FORWARD chain with iptables", ip);
-            } else {
-                log.error("Failed to block IP {} in FORWARD chain with iptables, exit code: {}", ip, forwardExitCode);
-                logProcessError(forwardProcess);
-            }
-        } catch (IOException | InterruptedException e) {
-            log.error("Error executing iptables block command for IP {}: {}", ip, e.getMessage());
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
-    
-    private void unblockIpWithIptables(String ip) {
-        try {
-            String inputCommand = String.format("iptables -D INPUT -s %s -j DROP", ip);
-            Process inputProcess = Runtime.getRuntime().exec(inputCommand);
-            int inputExitCode = inputProcess.waitFor();
-            
-            if (inputExitCode == 0) {
-                log.info("Successfully unblocked IP {} from INPUT chain with iptables", ip);
-            } else {
-                log.error("Failed to unblock IP {} from INPUT chain with iptables, exit code: {}", ip, inputExitCode);
-                logProcessError(inputProcess);
-            }
-
-            String forwardCommand = String.format("iptables -D FORWARD -s %s -j DROP", ip);
-            Process forwardProcess = Runtime.getRuntime().exec(forwardCommand);
-            int forwardExitCode = forwardProcess.waitFor();
-            
-            if (forwardExitCode == 0) {
-                log.info("Successfully unblocked IP {} from FORWARD chain with iptables", ip);
-            } else {
-                log.error("Failed to unblock IP {} from FORWARD chain with iptables, exit code: {}", ip, forwardExitCode);
-                logProcessError(forwardProcess);
-            }
-        } catch (IOException | InterruptedException e) {
-            log.error("Error executing iptables unblock command for IP {}: {}", ip, e.getMessage());
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
-    
-    private void blockIpWithUfw(String ip) {
-        try {
-            String command = String.format("ufw deny from %s to any", ip);
-            Process process = Runtime.getRuntime().exec(command);
-            int exitCode = process.waitFor();
-            
-            if (exitCode == 0) {
-                log.info("Successfully blocked IP {} with UFW", ip);
-            } else {
-                log.error("Failed to block IP {} with UFW, exit code: {}", ip, exitCode);
-                logProcessError(process);
-            }
-        } catch (IOException | InterruptedException e) {
-            log.error("Error executing UFW block command for IP {}: {}", ip, e.getMessage());
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
-    
-    private void unblockIpWithUfw(String ip) {
-        try {
-            String command = String.format("ufw delete deny from %s to any", ip);
-            Process process = Runtime.getRuntime().exec(command);
-            int exitCode = process.waitFor();
-            
-            if (exitCode == 0) {
-                log.info("Successfully unblocked IP {} with UFW", ip);
-            } else {
-                log.error("Failed to unblock IP {} with UFW, exit code: {}", ip, exitCode);
-                logProcessError(process);
-            }
-        } catch (IOException | InterruptedException e) {
-            log.error("Error executing UFW unblock command for IP {}: {}", ip, e.getMessage());
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
-    
-    private void logProcessError(Process process) {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-            String line;
-            StringBuilder errorOutput = new StringBuilder();
-            while ((line = reader.readLine()) != null) {
-                errorOutput.append(line).append("\n");
-            }
-            if (errorOutput.length() > 0) {
-                log.error("Process error output: {}", errorOutput.toString());
-            }
-        } catch (IOException e) {
-            log.error("Error reading process error stream: {}", e.getMessage());
-        }
     }
 
     public void manuallyBlockIp(String ip, long durationMillis) {
         long unblockTime = System.currentTimeMillis() + durationMillis;
         blockedIps.put(ip, unblockTime);
         log.warn("IP {} manually blocked for {} milliseconds", ip, durationMillis);
-        
+
         if (config.isBlockWithFirewall()) {
-            blockIpWithFirewall(ip);
-            
+            firewallManager.blockIp(ip);
+
             Thread unblockThread = new Thread(() -> {
                 try {
                     Thread.sleep(durationMillis);
-                    unblockIpWithFirewall(ip);
+                    firewallManager.unblockIp(ip);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -292,9 +159,9 @@ public class RateLimiter {
     public void manuallyUnblockIp(String ip) {
         blockedIps.remove(ip);
         log.info("IP {} manually unblocked", ip);
-        
+
         if (config.isBlockWithFirewall()) {
-            unblockIpWithFirewall(ip);
+            firewallManager.unblockIp(ip);
         }
     }
 
