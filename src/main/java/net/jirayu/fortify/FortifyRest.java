@@ -17,6 +17,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class FortifyRest implements RestInterceptor {
@@ -29,6 +31,7 @@ public class FortifyRest implements RestInterceptor {
     private final PathBlockConfig pathBlockConfig;
     private final RateLimiter rateLimiter;
     private final NotificationService notificationService;
+    private final Map<String, Long> windowStartMap = new ConcurrentHashMap<>();
 
     public FortifyRest(RateLimitConfig rateLimitConfig,
                        ProxyConfig proxyConfig,
@@ -70,11 +73,15 @@ public class FortifyRest implements RestInterceptor {
 
         boolean wasAlreadyBlocked = rateLimiter.isBlocked(ip);
         boolean allowed = rateLimiter.isAllowed(ip);
+        long windowStart = rateLimiter.getWindowStart(ip);
+        long resetTime = windowStart + (rateLimitConfig.getDuration() * 1000L);
 
         if (!allowed) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setHeader("X-RateLimit-Limit", String.valueOf(rateLimitConfig.getMaxRequests()));
             response.setHeader("X-RateLimit-Remaining", "0");
+            response.setHeader("X-RateLimit-Used", String.valueOf(rateLimitConfig.getMaxRequests()));
+            response.setHeader("X-RateLimit-Reset", String.valueOf(resetTime));
             response.setHeader("Retry-After", String.valueOf(rateLimitConfig.getDuration()));
 
             if (rateLimiter.isBlocked(ip)) {
@@ -93,7 +100,8 @@ public class FortifyRest implements RestInterceptor {
         int remaining = rateLimiter.getRemainingRequests(ip);
         response.setHeader("X-RateLimit-Limit", String.valueOf(rateLimitConfig.getMaxRequests()));
         response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
-        response.setHeader("X-RateLimit-Reset", String.valueOf(System.currentTimeMillis() + rateLimitConfig.getDuration() * 1000L));
+        response.setHeader("X-RateLimit-Used", String.valueOf(rateLimitConfig.getMaxRequests() - remaining));
+        response.setHeader("X-RateLimit-Reset", String.valueOf(resetTime));
 
         return true;
     }

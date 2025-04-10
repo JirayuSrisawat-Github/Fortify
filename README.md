@@ -165,6 +165,7 @@ Fortify adds the following headers to HTTP responses:
 - `X-RateLimit-Limit`: The maximum number of requests you can make
 - `X-RateLimit-Remaining`: The number of requests remaining in the current window
 - `X-RateLimit-Reset`: When the rate limit window resets (Unix timestamp in milliseconds)
+- `X-RateLimit-Used`: The number of requests already used in the current window
 - `Retry-After`: How long to wait before making another request (when rate limited)
 
 ## Requirements

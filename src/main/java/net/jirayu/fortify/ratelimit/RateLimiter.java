@@ -48,7 +48,7 @@ public class RateLimiter {
         }
 
         RequestTracker tracker = requestTrackers.computeIfAbsent(ip, k -> new RequestTracker());
-        tracker.addRequest();
+        tracker.addRequest(config.getDuration() * 1000L);
 
         if (tracker.getRequestsInWindow() > config.getMaxRequests()) {
             tracker.incrementViolations();
@@ -113,6 +113,11 @@ public class RateLimiter {
         return Math.max(0, remaining);
     }
 
+    public long getWindowStart(String ip) {
+        RequestTracker tracker = requestTrackers.get(ip);
+        return tracker != null ? tracker.getWindowStart() : System.currentTimeMillis();
+    }
+
     private void cleanup() {
         long now = System.currentTimeMillis();
 
@@ -173,13 +178,24 @@ public class RateLimiter {
         private final Map<Long, Integer> requestsPerSecond = new ConcurrentHashMap<>();
         private int violations = 0;
         private long lastRequestTime = 0;
+        private long windowStart;
 
-        public void addRequest() {
+        public void addRequest(long windowDurationMillis) {
             long now = System.currentTimeMillis();
-            long second = now / 1000;
 
+            if (now - windowStart > windowDurationMillis) {
+                requestsPerSecond.clear();
+                violations = 0;
+                windowStart = now;
+            }
+
+            long second = now / 1000;
             requestsPerSecond.compute(second, (k, v) -> (v == null) ? 1 : v + 1);
             lastRequestTime = now;
+        }
+
+        public long getWindowStart() {
+            return windowStart;
         }
 
         public int getRequestsInWindow() {
