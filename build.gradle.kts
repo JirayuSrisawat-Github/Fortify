@@ -36,7 +36,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.vladimir-bukhtoyarov:bucket4j-core:7.6.0")
+    implementation("com.github.vladimir-bukhtoyarov:bucket4j-core:7.6.1")
 }
 
 fun getGitVersion(): Pair<String, Boolean> {
