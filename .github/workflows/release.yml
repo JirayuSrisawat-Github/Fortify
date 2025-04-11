@@ -44,7 +44,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download main Artifact
+      - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
           name: Fortify.jar
@@ -53,6 +53,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: fortify-*.jar
+          tag: ${{ github.event.release.tag_name }}
           allowUpdates: true
           omitBodyDuringUpdate: true
           omitDraftDuringUpdate: true
@@ -60,7 +61,6 @@ jobs:
           omitPrereleaseDuringUpdate: true
 
   publish-jitpack:
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Publish to JitPack
