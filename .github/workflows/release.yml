@@ -63,7 +63,27 @@ jobs:
   publish-jitpack:
     runs-on: ubuntu-latest
     steps:
-      - name: Publish to JitPack
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Commit Hashes
+        id: commit_hash
+        run: |
+          echo "short7=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+          echo "jitpack10=$(git rev-parse --short=10 HEAD)" >> $GITHUB_OUTPUT
+          echo "long=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Publish to JitPack (Short Hash - 7)
         uses: badasintended/autojitpack@v1
         with:
-          version: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+          version: ${{ steps.commit_hash.outputs.short7 }}
+
+      - name: Publish to JitPack (JitPack Style - 10)
+        uses: badasintended/autojitpack@v1
+        with:
+          version: ${{ steps.commit_hash.outputs.jitpack10 }}
+
+      - name: Publish to JitPack (Long Hash - 40)
+        uses: badasintended/autojitpack@v1
+        with:
+          version: ${{ steps.commit_hash.outputs.long }}
