@@ -5,18 +5,10 @@ import net.jirayu.fortify.config.ProxyConfig;
 
 public class FortifyTools {
     public static String getIp(HttpServletRequest request, ProxyConfig proxyConfig) {
-        String ip;
+        String ip = proxyConfig.isTrustProxy()
+                ? request.getHeader(proxyConfig.getProxyHeader())
+                : request.getRemoteAddr();
 
-        if (proxyConfig.isTrustProxy()) {
-            ip = request.getHeader(proxyConfig.getProxyHeader());
-        } else {
-            ip = request.getRemoteAddr();
-        }
-
-        if (ip == null || ip.isEmpty()) {
-            ip = request.getRemoteAddr();
-        }
-
-        return ip;
+        return (ip == null || ip.isEmpty()) ? request.getRemoteAddr() : ip;
     }
 }
