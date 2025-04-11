@@ -45,6 +45,9 @@ public class FortifySocket extends PluginEventHandler {
 
     @Override
     public void onNewPlayer(@NotNull ISocketContext context, @NotNull IPlayer player) {
+        log.debug("New player request from userId={}, sessionId={}, current players={}/{}",
+                context.getUserId(), context.getSessionId(), context.getPlayers().size(), playerLimitConfig.getMaxPlayers());
+
         if (!isAllowedId(context.getUserId()) &&
                 playerLimitConfig.isEnabled() &&
                 context.getPlayers().size() >= playerLimitConfig.getMaxPlayers()) {
@@ -71,6 +74,9 @@ public class FortifySocket extends PluginEventHandler {
 
     @Override
     public void onWebSocketOpen(@NotNull ISocketContext context, boolean resumed) {
+        log.info("New connection: sessionId={}, userId={}, resumed={}, current total={}",
+                context.getSessionId(), context.getUserId(), resumed, connectedSockets.size());
+
         if (resourceMonitor.isThrottling() && !isAllowedId(context.getUserId())) {
             try {
                 int delay = resourceMonitor.getConnectionDelay();

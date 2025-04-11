@@ -55,6 +55,7 @@ public class FortifyRest implements RestInterceptor {
                              @NotNull Object handler) {
         String ip = FortifyTools.getIp(request, proxyConfig);
         String path = request.getRequestURI();
+        log.debug("Processing request from IP {} to path {}", ip, path);
 
         if (pathBlockConfig.isEnabled() && pathBlockConfig.isPathBlocked(path) && !isAllowedIp(ip)) {
             response.setStatus(HttpStatus.FORBIDDEN.value());
@@ -68,6 +69,7 @@ public class FortifyRest implements RestInterceptor {
         }
 
         if (isAllowedIp(ip)) {
+            log.debug("Request allowed for whitelisted IP {}", ip);
             return true;
         }
 
@@ -103,6 +105,8 @@ public class FortifyRest implements RestInterceptor {
         response.setHeader("X-RateLimit-Used", String.valueOf(rateLimitConfig.getMaxRequests() - remaining));
         response.setHeader("X-RateLimit-Reset", String.valueOf(resetTime));
 
+        log.debug("Request allowed for IP {}: {}/{} requests used", ip,
+                rateLimitConfig.getMaxRequests() - remaining, rateLimitConfig.getMaxRequests());
         return true;
     }
 

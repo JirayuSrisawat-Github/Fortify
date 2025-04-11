@@ -50,6 +50,9 @@ public class RateLimiter {
         RequestTracker tracker = requestTrackers.computeIfAbsent(ip, k -> new RequestTracker());
         tracker.addRequest(config.getDuration() * 1000L);
 
+        log.debug("Rate check for IP {}: {} requests in window, limit is {}",
+                ip, tracker.getRequestsInWindow(), config.getMaxRequests());
+
         if (tracker.getRequestsInWindow() > config.getMaxRequests()) {
             tracker.incrementViolations();
 
@@ -127,6 +130,7 @@ public class RateLimiter {
                     tracker.getViolations() == 0) {
                 return true;
             }
+
             tracker.cleanup(config.getDuration() * 1000L);
             return false;
         });
